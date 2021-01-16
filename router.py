@@ -7,35 +7,48 @@ from wind import Wind
 
 
 class Router:
-    def __init__(self, start_point, end_point, polar, wind):
+    def __init__(self, start_point, end_point, polar, wind, ellps='WGS84'):
         self.start_point = start_point
         self.end_point = end_point
         self.polar = polar
         self.wind = wind
+        self.g = Geod(ellps='WGS84')
 
-    def calculate_routing(self, n, angle_range=20):
-        g = Geod(ellps='WGS84')
-        az12, az21, dist = g.inv(self.start_point.x, self.start_point.y, self.end_point.x, self.end_point.y)
-        print(f'Distance: {dist}m')
+    def calculate_routing(self, n):
+        az, _, dist = self.g.inv(self.start_point.x, self.start_point.y, self.end_point.x, self.end_point.y)
+        print(f'Distance: {round(dist/1000, 1)}km')
         route_points = []
         speeds = [[0]]
         current_x, current_y = self.start_point.xy
         route_points.append(np.array([current_x, current_y]).flatten())
-        isochrones = []
-        az = az12
+        isochrones = [np.array([[self.start_point.x, self.start_point.y]])]
         for i in range(n):
-            isochrone = []
-            for angle in range(-angle_range, angle_range):
-                angle = angle360(az + angle)
-                s = self.polar.get_speed(current_x, current_y, angle, 0, 0, self.wind)
-                x, y, _ = g.fwd(current_x, current_y, angle, s*3600*24)
-                isochrone.append(np.array([x, y]).flatten())
-            current_x, current_y, az = g.fwd(current_x, current_y, az, dist/n)
+            current_x, current_y, az = self.g.fwd(current_x, current_y, az, dist/n)
             az = angle360(az + 180)
-            isochrones.append(isochrone)
+            isochrones.append(self.next_isochrone(isochrones[-1], az))
             speeds.append(self.polar.get_speed(current_x, current_y, az, 0, 0, self.wind))
             route_points.append(np.array([current_x, current_y]).flatten())
         return np.array(route_points), np.array(speeds).flatten(), np.array(isochrones)
+
+    def next_isochrone(self, previous_isochrone, az, angle_range=30):
+        isochrone = []
+        for start_point in previous_isochrone:
+            for angle in range(-angle_range, angle_range):
+                angle = angle360(az + angle)
+                s = self.polar.get_speed(start_point[0], start_point[1], angle, 0, 0, self.wind)
+                x, y, _ = self.g.fwd(start_point[0], start_point[1], angle, s * 3600 * 24)
+                isochrone.append(np.array([x, y]).flatten())
+        best_per_sector = {}
+        decimals = 0
+        for x in isochrone:
+            az12, az21, dist = self.g.inv(self.start_point.x, self.start_point.y, x[0], x[1])
+            key = round(az12, decimals)
+            if key in best_per_sector:
+                if dist > best_per_sector[key][1]:
+                    best_per_sector[key] = (x, dist)
+            else:
+                best_per_sector[key] = (x, dist)
+        return np.array([x[0] for x in best_per_sector.values()])
 
 
 if __name__ == '__main__':
@@ -57,6 +70,7 @@ if __name__ == '__main__':
     # ax.set_global()
     ax.coastlines()
     # plt.plot([start.x, end.x], [start.y, end.y], transform=crs.PlateCarree())
+
     def color(s):
         if s < 2:
             return 'black'
@@ -70,12 +84,8 @@ if __name__ == '__main__':
         if i > 0:
             plt.plot([p_r[0], r[0]], [p_r[1], r[1]], transform=crs.PlateCarree(), c=color(speeds[i]))
         p_r = r
-    for j, isochrone in enumerate(isochrones):
-        for i, p in enumerate(isochrone):
-            if i > 0:
-                plt.plot([p_p[0], p[0]], [p_p[1], p[1]], transform=crs.PlateCarree(), c='black')
-                plt.plot([route[j][0], p[0]], [route[j][1], p[1]], transform=crs.PlateCarree(), c='black', linewidth=0.1)
-            p_p = p
+    for isochrone in isochrones:
+        plt.scatter(isochrone[:, 0], isochrone[:, 1], transform=crs.PlateCarree(), s=0.1)
     # plt.plot([start.x, end.x], [start.y, end.y], transform=crs.Geodetic())
     plt.scatter(x=[start.x, end.x], y=[start.y, end.y], transform=crs.PlateCarree())
     plt.show()
