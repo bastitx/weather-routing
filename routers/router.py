@@ -38,12 +38,18 @@ if __name__ == '__main__':
 
     r = IsochroneRouter(start, end, p, w)
     best_point_iso = r.calculate_routing()
+    print(f'Isochrone Distance: {round(best_point_iso.distance_to_start / 1000, 1)}km')
+    print(f'Isochrone Passage time: {round(best_point_iso.time / 3600, 1)}h')
     #isochrones = r.get_isochrones()
     r = GCRouter(start, end, p, w)
     best_point_gc = r.calculate_routing(20)
     print(f'GC Distance: {round(best_point_gc.distance_to_start / 1000, 1)}km')
+    print(f'GC Passage time: {round(best_point_gc.time / 3600, 1)}h')
     r = DPRouter(start, end, p, w)
+    best_point_dp = r.calculate_routing()
     isochrones = r.get_isochrones()
+    print(f'DP Distance: {round(best_point_dp.distance_to_start / 1000, 1)}km')
+    print(f'DP Passage time: {round(best_point_dp.time / 3600, 1)}h')
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1, projection=crs.Mercator())
     # ax.set_global()
@@ -59,7 +65,7 @@ if __name__ == '__main__':
             return 'green'
         else:
             return 'red'
-    for p in [best_point_iso, best_point_gc]:
+    for p in [best_point_iso, best_point_gc, best_point_dp]:
         while p.previous_point is not None:
             plt.plot([p.x, p.previous_point.x], [p.y, p.previous_point.y], transform=crs.PlateCarree(), c=color(p.speed))
             p = p.previous_point
