@@ -2,53 +2,64 @@ from pyproj import Geod
 import numpy as np
 
 from polar import Polar
-from util import CRS, angle360
+from routing_point import RoutingPoint
+from util import angle360
 from wind import Wind
 
 
 class Router:
-    def __init__(self, start_point, end_point, polar, wind, ellps='WGS84'):
+    def __init__(self, start_point, end_point, polar, wind, crs='WGS84'):
         self.start_point = start_point
         self.end_point = end_point
         self.polar = polar
         self.wind = wind
-        self.g = Geod(ellps='WGS84')
+        self.g = Geod(ellps=crs)
 
-    def calculate_routing(self, n):
+    def calculate_routing(self):
         az, _, dist = self.g.inv(self.start_point.x, self.start_point.y, self.end_point.x, self.end_point.y)
-        print(f'Distance: {round(dist/1000, 1)}km')
-        route_points = []
-        speeds = [[0]]
-        current_x, current_y = self.start_point.xy
-        route_points.append(np.array([current_x, current_y]).flatten())
-        isochrones = [np.array([[self.start_point.x, self.start_point.y]])]
-        for i in range(n):
-            current_x, current_y, az = self.g.fwd(current_x, current_y, az, dist/n)
-            az = angle360(az + 180)
+        isochrones = [[RoutingPoint(self.start_point.x, self.start_point.y, az, None, 0, az, 0)]]
+        min_dist = (dist, isochrones[0][0])
+        current_min = min_dist
+        while current_min[0] <= min_dist[0]:
+            min_dist = current_min
             isochrones.append(self.next_isochrone(isochrones[-1], az))
-            speeds.append(self.polar.get_speed(current_x, current_y, az, 0, 0, self.wind))
-            route_points.append(np.array([current_x, current_y]).flatten())
-        return np.array(route_points), np.array(speeds).flatten(), np.array(isochrones)
+            current_min = min([(self.g.inv(x.x, x.y, self.end_point.x, self.end_point.y)[2], x) for x in isochrones[-1]])
+        return isochrones, min_dist[1]
 
-    def next_isochrone(self, previous_isochrone, az, angle_range=30):
+    def great_circle_route(self, n=20):
+        az, _, dist = self.g.inv(self.start_point.x, self.start_point.y, self.end_point.x, self.end_point.y)
+        print(f'GC Distance: {round(dist/1000, 1)}km')
+        route_points = [RoutingPoint(self.start_point.x, self.start_point.y, az, None, None, None, 0)]
+        for _ in range(n):
+            current_x, current_y, az = self.g.fwd(route_points[-1].x, route_points[-1].y, az, dist / n)
+            az = angle360(az + 180)
+            s = self.polar.get_speed(current_x, current_y, az, 0, 0, self.wind)
+            route_points.append(RoutingPoint(current_x, current_y, az, route_points[-1], None, None, s))
+        return route_points
+
+    def next_isochrone(self, previous_isochrone, start_bearing, bearing_range=20, angle_range=20):
         isochrone = []
         for start_point in previous_isochrone:
+            az = start_point.course
             for angle in range(-angle_range, angle_range):
                 angle = angle360(az + angle)
-                s = self.polar.get_speed(start_point[0], start_point[1], angle, 0, 0, self.wind)
-                x, y, _ = self.g.fwd(start_point[0], start_point[1], angle, s * 3600 * 24)
-                isochrone.append(np.array([x, y]).flatten())
+                s = self.polar.get_speed(start_point.x, start_point.y, angle, 0, 0, self.wind)
+                x, y, new_az = self.g.fwd(start_point.x, start_point.y, angle, s * 3600 * 24)
+                new_az = angle360(new_az+180)
+                az12, _, dist = self.g.inv(self.start_point.x, self.start_point.y, x, y)
+                isochrone.append(RoutingPoint(x, y, new_az, start_point, dist, az12, s))
         best_per_sector = {}
         decimals = 0
+        rounded_start_bearing = round(start_bearing, decimals)
         for x in isochrone:
-            az12, az21, dist = self.g.inv(self.start_point.x, self.start_point.y, x[0], x[1])
-            key = round(az12, decimals)
-            if key in best_per_sector:
-                if dist > best_per_sector[key][1]:
-                    best_per_sector[key] = (x, dist)
-            else:
-                best_per_sector[key] = (x, dist)
-        return np.array([x[0] for x in best_per_sector.values()])
+            key = round(x.bearing, decimals)
+            if abs(key - rounded_start_bearing) < bearing_range:
+                if key in best_per_sector:
+                    if x.distance_to_start > best_per_sector[key].distance_to_start:
+                        best_per_sector[key] = x
+                else:
+                    best_per_sector[key] = x
+        return [x for x in best_per_sector.values()]
 
 
 if __name__ == '__main__':
@@ -57,14 +68,16 @@ if __name__ == '__main__':
     from shapely.geometry import Point, LineString
 
     start = Point(-4.91519, 48.26118)
-    end = Point(-74.71870, 38.86484)
+    # end = Point(-74.71870, 38.86484)
+    end = Point(-60.69365, 14.77645)
 
     p = np.array([[0., 45., 90., 135., 180.], [0., 0., 2.8, 4.2, 2.8]])
     p = Polar(p)
     w = Wind(150., 20.)
 
     r = Router(start, end, p, w)
-    route, speeds, isochrones = r.calculate_routing(20)
+    isochrones, best_point = r.calculate_routing()
+    gc_route = r.great_circle_route(20)
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1, projection=crs.Mercator())
     # ax.set_global()
@@ -80,12 +93,17 @@ if __name__ == '__main__':
             return 'green'
         else:
             return 'red'
-    for i, r in enumerate(route):
-        if i > 0:
-            plt.plot([p_r[0], r[0]], [p_r[1], r[1]], transform=crs.PlateCarree(), c=color(speeds[i]))
-        p_r = r
+    p = gc_route[-1]
+    while p.previous_point is not None:
+        plt.plot([p.x, p.previous_point.x], [p.y, p.previous_point.y], transform=crs.PlateCarree(), c=color(p.speed))
+        p = p.previous_point
+    p = best_point
+    while p.previous_point is not None:
+        plt.plot([p.x, p.previous_point.x], [p.y, p.previous_point.y], transform=crs.PlateCarree(), c=color(p.speed))
+        p = p.previous_point
     for isochrone in isochrones:
-        plt.scatter(isochrone[:, 0], isochrone[:, 1], transform=crs.PlateCarree(), s=0.1)
+        isochrone = np.array([[x.x, x.y] for x in isochrone])
+        plt.plot(isochrone[:, 0], isochrone[:, 1], transform=crs.PlateCarree(), linewidth=0.1, color='black')
     # plt.plot([start.x, end.x], [start.y, end.y], transform=crs.Geodetic())
     plt.scatter(x=[start.x, end.x], y=[start.y, end.y], transform=crs.PlateCarree())
     plt.show()
