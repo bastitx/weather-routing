@@ -1,11 +1,11 @@
-from router import Router
+from routers.router import Router
 from routing_point import RoutingPoint
 from util import angle360
 
 
 class IsochroneRouter(Router):
     def __init__(self, *args):
-        super(IsochroneRouter).__init__(*args)
+        super().__init__(*args)
         self.isochrones = None
 
     def calculate_routing(self):

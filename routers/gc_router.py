@@ -1,11 +1,11 @@
-from router import Router
+from routers.router import Router
 from routing_point import RoutingPoint
 from util import angle360
 
 
 class GCRouter(Router):
     def __init__(self, *args):
-        super(GCRouter).__init__(*args)
+        super().__init__(*args)
         self.route_points = None
 
     def calculate_routing(self, n=20):

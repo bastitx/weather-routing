@@ -2,10 +2,6 @@ from pyproj import Geod
 import numpy as np
 
 from polar import Polar
-from routers.gc_router import GCRouter
-from routers.isochrone_router import IsochroneRouter
-from routing_point import RoutingPoint
-from util import angle360
 from wind import Wind
 
 
@@ -27,7 +23,9 @@ class Router:
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import cartopy.crs as crs
-    from shapely.geometry import Point, LineString
+    from shapely.geometry import Point
+    from routers.gc_router import GCRouter
+    from routers.isochrone_router import IsochroneRouter
 
     start = Point(-4.91519, 48.26118)
     # end = Point(-74.71870, 38.86484)
@@ -57,7 +55,7 @@ if __name__ == '__main__':
             return 'green'
         else:
             return 'red'
-    for p in [best_point_iso, best_point_gc]
+    for p in [best_point_iso, best_point_gc]:
         while p.previous_point is not None:
             plt.plot([p.x, p.previous_point.x], [p.y, p.previous_point.y], transform=crs.PlateCarree(), c=color(p.speed))
             p = p.previous_point
