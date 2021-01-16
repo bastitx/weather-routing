@@ -26,6 +26,7 @@ if __name__ == '__main__':
     from shapely.geometry import Point
     from routers.gc_router import GCRouter
     from routers.isochrone_router import IsochroneRouter
+    from routers.dp_router import DPRouter
 
     start = Point(-4.91519, 48.26118)
     # end = Point(-74.71870, 38.86484)
@@ -37,9 +38,12 @@ if __name__ == '__main__':
 
     r = IsochroneRouter(start, end, p, w)
     best_point_iso = r.calculate_routing()
-    isochrones = r.get_isochrones()
+    #isochrones = r.get_isochrones()
     r = GCRouter(start, end, p, w)
     best_point_gc = r.calculate_routing(20)
+    print(f'GC Distance: {round(best_point_gc.distance_to_start / 1000, 1)}km')
+    r = DPRouter(start, end, p, w)
+    isochrones = r.get_isochrones()
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1, projection=crs.Mercator())
     # ax.set_global()
@@ -61,7 +65,7 @@ if __name__ == '__main__':
             p = p.previous_point
     for isochrone in isochrones:
         isochrone = np.array([[x.x, x.y] for x in isochrone])
-        plt.plot(isochrone[:, 0], isochrone[:, 1], transform=crs.PlateCarree(), linewidth=0.1, color='black')
+        plt.scatter(isochrone[:, 0], isochrone[:, 1], transform=crs.PlateCarree(), s=0.1, color='black')
     # plt.plot([start.x, end.x], [start.y, end.y], transform=crs.Geodetic())
     plt.scatter(x=[start.x, end.x], y=[start.y, end.y], transform=crs.PlateCarree())
     plt.show()
