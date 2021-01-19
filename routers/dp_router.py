@@ -33,7 +33,7 @@ class DPRouter(Router):
             for start in self.mesh[i]:
                 for end in self.mesh[i+1]:
                     az, _, dist = self.g.inv(start.x, start.y, end.x, end.y)
-                    v = self.polar.get_speed(start.x, start.y, az, 0, start.time, self.wind)[0]
+                    v = self.polar.get_speed(start, az, 0, start.time, self.wind)[0]
                     t_end = start.time + dist / v
                     if end.time is None or t_end < end.time:
                         end.time = t_end

@@ -1,3 +1,5 @@
+from shapely.geometry import Point
+
 from routers.router import Router
 from routing_point import RoutingPoint
 from util import angle360
@@ -14,10 +16,11 @@ class GCRouter(Router):
         route_points = [RoutingPoint(self.start_point.x, self.start_point.y, az, None, d, None, 0, 0)]
         for _ in range(n):
             d += dist / n
-            current_x, current_y, az = self.g.fwd(route_points[-1].x, route_points[-1].y, az, dist / n)
+            x, y, az = self.g.fwd(route_points[-1].x, route_points[-1].y, az, dist / n)
+            loc = Point(x, y)
             az = angle360(az + 180)
-            v = self.polar.get_speed(current_x, current_y, az, 0, route_points[-1].time, self.wind)[0]
-            route_points.append(RoutingPoint(current_x, current_y, az, route_points[-1], d, None, v,
+            v = self.polar.get_speed(loc, az, 0, route_points[-1].time, self.wind)[0]
+            route_points.append(RoutingPoint(loc.x, loc.y, az, route_points[-1], d, None, v,
                                              route_points[-1].time + dist / v / n))
         return route_points[-1]
 

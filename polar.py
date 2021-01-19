@@ -1,5 +1,7 @@
+from shapely.geometry import Point
+
 from util import angle360
-from wind import Wind
+from wind.wind import Wind
 import numpy as np
 
 
@@ -7,10 +9,10 @@ class Polar:
     def __init__(self, polar):
         self.polar = polar
 
-    def get_speed(self, x: float, y: float, heading: float, velocity_boat: float, t: int, wind: Wind):
+    def get_speed(self, loc: Point, heading: float, velocity_boat: float, t: int, wind: Wind):
         # TODO: Currently true wind speed; add currents and apparent wind (taking into account speed?)
         # TODO: should polar map from true wind speed to velocity or from apparent wind speed?
-        direction_true_wind, velocity_true_wind = wind.get_wind(x, y, heading, t)
+        direction_true_wind, velocity_true_wind = wind.get_wind(loc, heading, t)
         # law of cosines
         velocity_apparent_wind = np.sqrt(velocity_boat ** 2 + velocity_true_wind ** 2 +
                                          2 * velocity_boat * velocity_true_wind *
@@ -32,8 +34,9 @@ class Polar:
 
 
 if __name__ == '__main__':
+    from wind.constant_wind import ConstantWind
     # angle in degrees -> speed in m/s TODO: make dependent on wind speed
     p = np.array([[0., 45., 90., 135., 180.], [0., 0., 2.8, 4.2, 2.8]])
     p = Polar(p)
-    w = Wind(150., 20.)
+    w = ConstantWind(150., 20.)
     print(p.get_speed(0., 0., 270., 0., 0, w))

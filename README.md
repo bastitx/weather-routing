@@ -1,3 +1,13 @@
+## Requirements
+* Netcdf
+* Proj + pyproj
+* [CDO](https://code.mpimet.mpg.de/projects/cdo)
+* numpy
+* matplotlib
+* cartopy
+* shapely
+
+
 ## Similar Repos
 * https://github.com/TAJD/SailRoute.jl
 * https://github.com/mak08/VirtualHelm

@@ -28,7 +28,7 @@ class IsochroneRouter(Router):
             az = start_point.course
             for angle in range(-angle_range, angle_range):
                 angle = angle360(az + angle)
-                v = self.polar.get_speed(start_point.x, start_point.y, angle, 0, start_point.time, self.wind)
+                v = self.polar.get_speed(start_point, angle, 0, start_point.time, self.wind)
                 x, y, new_az = self.g.fwd(start_point.x, start_point.y, angle, v * time_step)
                 new_az = angle360(new_az+180)
                 az12, _, dist = self.g.inv(self.start_point.x, self.start_point.y, x, y)
