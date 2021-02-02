@@ -13,7 +13,7 @@ class GCRouter(Router):
     def calculate_routing(self, n=20):
         az, _, dist = self.g.inv(self.start_point.x, self.start_point.y, self.end_point.x, self.end_point.y)
         d = 0
-        route_points = [RoutingPoint(self.start_point.x, self.start_point.y, az, None, d, None, 0, 0)]
+        route_points = [RoutingPoint(self.start_point.x, self.start_point.y, az, None, d, None, 0, self.start_time)]
         for _ in range(n):
             d += dist / n
             x, y, az = self.g.fwd(route_points[-1].x, route_points[-1].y, az, dist / n)

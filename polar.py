@@ -30,7 +30,7 @@ class Polar:
             x = 360 - direction_apparent_wind
         else:
             x = direction_apparent_wind
-        return np.interp([x], self.polar[0], self.polar[1])
+        return np.interp(x, self.polar[0], self.polar[1])
 
 
 if __name__ == '__main__':

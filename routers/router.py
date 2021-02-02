@@ -1,16 +1,20 @@
+import time
+
 from pyproj import Geod
 import numpy as np
 
 from polar import Polar
 from wind.constant_wind import ConstantWind
+from wind.grib_wind import GRIBWind
 
 
 class Router:
-    def __init__(self, start_point, end_point, polar, wind, crs='WGS84'):
+    def __init__(self, start_point, end_point, polar, wind, start_time, crs='WGS84'):
         self.start_point = start_point
         self.end_point = end_point
         self.polar = polar
         self.wind = wind
+        self.start_time = start_time
         self.g = Geod(ellps=crs)
 
     def calculate_routing(self):
@@ -28,28 +32,32 @@ if __name__ == '__main__':
     from routers.dp_router import DPRouter
     from routers.isochrone_router import IsochroneRouter
 
-    end = Point(-4.91519, 48.26118)
-    start = Point(-74.71870, 38.86484)
-    # start = Point(-60.69365, 14.77645)
+    # end = Point(-4.91519, 48.26118)
+    # start = Point(-74.71870, 38.86484)
+    # end = Point(-60.69365, 14.77645)
+
+    start = Point(-18.5351, 63.3676)
+    end = Point(-5.1736668, 58.542698)
 
     p = np.array([[0., 45., 90., 135., 180.], [0., 0., 2.8, 4.2, 2.8]])
     p = Polar(p)
-    w = ConstantWind(180., 20.)
+    w = GRIBWind()
+    start_time = time.time() + 60 * 60 * 3
 
-    r = IsochroneRouter(start, end, p, w)
-    best_point_iso = r.calculate_routing()
-    print(f'Isochrone Distance: {round(best_point_iso.distance_to_start / 1000, 1)}km')
-    print(f'Isochrone Passage time: {round(best_point_iso.time / 3600, 1)}h')
-    isochrones = r.get_isochrones()
-    r = GCRouter(start, end, p, w)
-    best_point_gc = r.calculate_routing(20)
-    print(f'GC Distance: {round(best_point_gc.distance_to_start / 1000, 1)}km')
-    print(f'GC Passage time: {round(best_point_gc.time / 3600, 1)}h')
-    r = DPRouter(start, end, p, w)
-    best_point_dp = r.calculate_routing()
+    # r = IsochroneRouter(start, end, p, w, start_time)
+    # best_point_iso = r.calculate_routing()
+    # print(f'Isochrone Distance: {round(best_point_iso.distance_to_start / 1000, 1)}km')
+    # print(f'Isochrone Passage time: {round((best_point_iso.time - start_time) / 3600, 1)}h')
     # isochrones = r.get_isochrones()
+    # r = GCRouter(start, end, p, w, start_time)
+    # best_point_gc = r.calculate_routing(3)
+    # print(f'GC Distance: {round(best_point_gc.distance_to_start / 1000, 1)}km')
+    # print(f'GC Passage time: {round((best_point_gc.time - start_time) / 3600, 1)}h')
+    r = DPRouter(10, 5, start, end, p, w, start_time)
+    best_point_dp = r.calculate_routing()
+    isochrones = r.get_isochrones()
     print(f'DP Distance: {round(best_point_dp.distance_to_start / 1000, 1)}km')
-    print(f'DP Passage time: {round(best_point_dp.time / 3600, 1)}h')
+    print(f'DP Passage time: {round((best_point_dp.time - start_time) / 3600, 1)}h')
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1, projection=crs.Mercator())
     # ax.set_global()
@@ -65,7 +73,7 @@ if __name__ == '__main__':
             return 'green'
         else:
             return 'red'
-    for p in [best_point_iso, best_point_gc, best_point_dp]:
+    for p in [best_point_dp]:  # best_point_iso, best_point_gc
         while p.previous_point is not None:
             plt.plot([p.x, p.previous_point.x], [p.y, p.previous_point.y], transform=crs.PlateCarree(), c=color(p.speed))
             p = p.previous_point
@@ -73,6 +81,9 @@ if __name__ == '__main__':
         isochrone = np.array([[x.x, x.y] for x in isochrone])
         # plt.scatter(isochrone[:, 0], isochrone[:, 1], transform=crs.PlateCarree(), s=0.1, color='black')
         plt.plot(isochrone[:, 0], isochrone[:, 1], transform=crs.PlateCarree(), linewidth=0.1, color='black')
-    # plt.plot([start.x, end.x], [start.y, end.y], transform=crs.Geodetic())
+    plt.plot([start.x, end.x], [start.y, end.y], transform=crs.Geodetic())
     plt.scatter(x=[start.x, end.x], y=[start.y, end.y], transform=crs.PlateCarree())
+
+    lats, lons, data = w.loader.display_wind(start_time)
+    plt.pcolormesh(lons, lats, data, transform=crs.PlateCarree())
     plt.show()

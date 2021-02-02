@@ -10,7 +10,7 @@ class IsochroneRouter(Router):
 
     def calculate_routing(self):
         az, _, dist = self.g.inv(self.start_point.x, self.start_point.y, self.end_point.x, self.end_point.y)
-        self.isochrones = [[RoutingPoint(self.start_point.x, self.start_point.y, az, None, 0, az, 0, 0)]]
+        self.isochrones = [[RoutingPoint(self.start_point.x, self.start_point.y, az, None, 0, az, 0, self.start_time)]]
         min_dist = (dist, self.isochrones[0][0])
         current_min = min_dist
         while current_min[0] <= min_dist[0]:
