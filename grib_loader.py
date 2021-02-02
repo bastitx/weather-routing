@@ -45,7 +45,7 @@ class GRIBLoader:
         self.wind_direction = {}
         self.wind_velocity = {}
 
-    def get_weather_data(self, metric='u_10m', key='10u', hours='000'):
+    def get_weather_data(self, metric='u_10m', hours='000'):
         date = time.strftime("%Y%m%d", self.today.timetuple())
         filename = f'icon_global_{date}{self.run}_{hours}_{metric.upper()}'
         nc_file = os.path.join(self.path, f'{filename}.nc')
@@ -92,9 +92,9 @@ class GRIBLoader:
                 forecast -= 1
             elif m == 2:
                 forecast += 1
-        filename = self.get_weather_data(metric='u_10m', hours=f"{forecast:03}", key='10u')
+        filename = self.get_weather_data(metric='u_10m', hours=f"{forecast:03}")
         u, lats, lons = self.extract_data(filename, '10u')
-        filename = self.get_weather_data(metric='v_10m', hours=f"{forecast:03}", key='10v')
+        filename = self.get_weather_data(metric='v_10m', hours=f"{forecast:03}")
         v, lats, lons = self.extract_data(filename, '10v')
         velocity = np.sqrt(u**2 + v**2)
         direction = np.arccos(v / velocity)
@@ -109,18 +109,8 @@ class GRIBLoader:
         velocity = self.wind_velocity[forecast](loc.x, loc.y)
         return direction, velocity
 
-    @staticmethod
-    def shift_grid_180(lonsin, datain):
-        i0 = np.argmin(np.fabs(lonsin-180))
-        lonsout = np.concatenate([lonsin[i0:]-360, lonsin[:i0]])
-        dataout = np.concatenate([datain[..., i0:], datain[..., :i0]], axis=-1)
-        return dataout, lonsout
-
     def display_wind(self, timestamp):
         velocity, _, lats, lons, _ = self.get_wind_velocity_direction(timestamp)
-        # velocity = velocity - velocity.min()
-        # velocity /= velocity.max()
-        # velocity, lons = self.shift_grid_180(lons, velocity)
         return lats, lons, velocity
 
 
