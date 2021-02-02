@@ -84,7 +84,7 @@ class GRIBLoader:
             f.close()
             return data, lats, lons
 
-    def get_wind_velocity_direction(self, time):
+    def get_wind_velocity_direction(self, time, force_file_read=False):
         forecast = round((time - self.today.timestamp()) / 60 / 60)
         if forecast > 78:
             m = forecast % 3
@@ -92,25 +92,29 @@ class GRIBLoader:
                 forecast -= 1
             elif m == 2:
                 forecast += 1
-        filename = self.get_weather_data(metric='u_10m', hours=f"{forecast:03}")
-        u, lats, lons = self.extract_data(filename, '10u')
-        filename = self.get_weather_data(metric='v_10m', hours=f"{forecast:03}")
-        v, lats, lons = self.extract_data(filename, '10v')
-        velocity = np.sqrt(u**2 + v**2)
-        direction = np.arccos(v / velocity)
-        if forecast not in self.wind_velocity or forecast not in self.wind_direction:
-            self.wind_velocity[forecast] = sip.interp2d(lons, lats, velocity)
-            self.wind_direction[forecast] = sip.interp2d(lons, lats, direction)
-        return velocity, direction, lats, lons, forecast
+        forecast_in_dicts = forecast in self.wind_velocity and forecast in self.wind_direction
+        if force_file_read or not forecast_in_dicts:
+            filename = self.get_weather_data(metric='u_10m', hours=f"{forecast:03}")
+            u, lats, lons = self.extract_data(filename, '10u')
+            filename = self.get_weather_data(metric='v_10m', hours=f"{forecast:03}")
+            v, lats, lons = self.extract_data(filename, '10v')
+            velocity = np.sqrt(u**2 + v**2)
+            direction = np.arccos(v / velocity)
+            if not forecast_in_dicts:
+                self.wind_velocity[forecast] = sip.interp2d(lons, lats, velocity)
+                self.wind_direction[forecast] = sip.interp2d(lons, lats, direction)
+            return forecast, velocity, direction, lats, lons
+        else:
+            return forecast, self.wind_velocity[forecast], self.wind_direction[forecast], None, None
 
     def get_wind(self, timestamp, loc):
-        _, _, _, _, forecast = self.get_wind_velocity_direction(timestamp)
+        forecast, *_ = self.get_wind_velocity_direction(timestamp)
         direction = self.wind_direction[forecast](loc.x, loc.y)
         velocity = self.wind_velocity[forecast](loc.x, loc.y)
         return direction, velocity
 
     def display_wind(self, timestamp):
-        velocity, _, lats, lons, _ = self.get_wind_velocity_direction(timestamp)
+        _, velocity, _, lats, lons = self.get_wind_velocity_direction(timestamp, force_file_read=True)
         return lats, lons, velocity
 
 
