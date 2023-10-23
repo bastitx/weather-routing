@@ -1,15 +1,28 @@
 from routers.router import Router
 from routing_point import RoutingPoint
 from util import angle360
+import numpy as np
 
 
 class IsochroneRouter(Router):
-    def __init__(self, *args):
+    '''
+    Isochrone Router. An isochrone is a line of equal travel time. We create a mesh of isochrones and find the
+    shortest path from start to end point. 
+    '''
+
+    def __init__(self, time_step, *args):
         super().__init__(*args)
         self.isochrones = None
+        self.time_step = time_step
 
     def calculate_routing(self):
+        '''
+        Calculate the shortest path from start to end point. This is inspired by 
+        https://github.com/mak08/Bitsailor/blob/027c3fb699f7ef090349d3eb8fd4fc0b16f06987/simulation.cl#L39.
+        '''
+        # Calculate initial course (forward azimuth) and distance from start to end point
         az, _, dist = self.g.inv(self.start_point.x, self.start_point.y, self.end_point.x, self.end_point.y)
+        # Calculate initial isochrone
         self.isochrones = [[RoutingPoint(self.start_point.x, self.start_point.y, az, None, 0, az, 0, self.start_time)]]
         min_dist = (dist, self.isochrones[0][0])
         current_min = min_dist
@@ -22,17 +35,25 @@ class IsochroneRouter(Router):
     def get_isochrones(self):
         return self.isochrones
 
-    def _next_isochrone(self, previous_isochrone, start_bearing, bearing_range=20, angle_range=20, time_step=(3600*24)):
+    def _next_isochrone(self, previous_isochrone: list[RoutingPoint], start_bearing: float, bearing_range=20, angle_range=20):
+        '''Calculate the next isochrone starting from the previous one.'''
         isochrone = []
+        # Iterate over all points in previous isochrone
         for start_point in previous_isochrone:
             az = start_point.course
+            # Iterate over all full degree angles in range
             for angle in range(-angle_range, angle_range):
                 angle = angle360(az + angle)
+                # Get speed from current wind at current location and time
                 v = self.polar.get_speed(start_point, angle, 0, start_point.time, self.wind)
-                x, y, new_az = self.g.fwd(start_point.x, start_point.y, angle, v * time_step)
+                # Calculate new location and azimuth by travelling for one time step in the given direction at the given speed
+                x, y, new_az = self.g.fwd(start_point.x, start_point.y, angle, v * self.time_step)
                 new_az = angle360(new_az+180)
+                # Calculate bearing and distance from start point
                 az12, _, dist = self.g.inv(self.start_point.x, self.start_point.y, x, y)
-                isochrone.append(RoutingPoint(x, y, new_az, start_point, dist, az12, v, start_point.time + time_step))
+                isochrone.append(RoutingPoint(x, y, new_az, start_point, dist, az12, v, start_point.time + self.time_step))
+
+        # Iterate over all points in isochrone and find the best point in each sector
         best_per_sector = {}
         decimals = 0
         rounded_start_bearing = round(start_bearing, decimals)

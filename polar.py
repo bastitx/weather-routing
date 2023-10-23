@@ -6,6 +6,8 @@ import numpy as np
 
 
 class Polar:
+    '''Polar diagram of a boat'''
+    
     def __init__(self, polar):
         self.polar = polar
 
@@ -30,7 +32,9 @@ class Polar:
             x = 360 - direction_apparent_wind
         else:
             x = direction_apparent_wind
-        return np.interp(x, self.polar[0], self.polar[1])
+        speed = np.interp(x, self.polar[0], self.polar[1])
+        speed = np.where(speed < 1e-5, 1e-5, speed)
+        return speed
 
 
 if __name__ == '__main__':

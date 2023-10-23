@@ -4,6 +4,8 @@ from wind.wind import Wind
 
 
 class GRIBWind(Wind):
+    '''Wind from GRIB files'''
+    
     def __init__(self):
         self.loader = GRIBLoader(path='./tmp')
 
